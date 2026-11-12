@@ -35,7 +35,7 @@ vol_window = 20                 # candles in each realized-vol reading
 vol_lookback_days = 90
 vol_max_percentile = 95
 signal = "bollinger_dip"        # entry signal; see revx/signals.py
-band_width_pct = 0.10           # at most band_max_lots open lots per pair within any price range this wide
+band_width_pct = 0.15           # at most band_max_lots open lots per pair within any price range this wide
 band_max_lots = 2
 breakout_atr_mult = 2           # a candle whose open-to-close move is at least this many ATRs is a breakout
 breakout_cooldown_candles = 8   # no new lot while any of the last N closed candles is a breakout (8 x 4h = 32h)

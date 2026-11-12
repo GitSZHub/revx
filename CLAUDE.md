@@ -36,6 +36,7 @@ Live mode (the user runs this, never Claude): set `DRY_RUN = false`, then `main.
 - `revx/engine.py`: order lifecycle, floor guard, idempotent placement, `LiveBroker` and `DryRunBroker`, lots and disposals.
 - `revx/cycle.py`: one decision cycle. `revx/reconcile.py`, `revx/killswitch.py`.
 - `revx/ledger.py`: schema, migrations, queries, backup. `revx/report.py`, `revx/backtest.py`, `main.py` (CLI).
+- `research/`: write-ups and scripts for studies (index in `research/README.md`). New findings go there first.
 - `revx/sync.py`: pulls the server's ledger to this machine (`main.py sync`).
 - `deploy/revx-bot.service`: systemd unit template.
 - Gitignored runtime files: `ledger.db`, `backups/`, `data/` (candle cache), `HALT`.
@@ -46,7 +47,7 @@ Entry gates, in order (first failure is logged in `signals.reason`): breakout pa
 
 - Signal: 4h close below the lower Bollinger band (20, 2) and realized-vol percentile (90 days) at or below 95.
 - Breakout pause: no new lot while any of the last 8 closed candles (32h, including the latest) moved at least 2 x ATR open-to-close, up or down. ATR is the value before that candle.
-- Price band: at most 2 open lots per pair within any 10% price range (sliding window, not fixed buckets).
+- Price band: at most 2 open lots per pair within any 15% price range (sliding window, not fixed buckets).
 - Spacing: at least 1.5 x ATR below the pair's most recent open lot.
 - Buys: post-only limit at the bid, cancelled after `unfilled_cancel_minutes` and re-evaluated.
 - Exit: floor = entry x (1 + buy fee + taker fee + min_profit), rounded up to the price step. A 4h close at or above the floor arms the trail: max(floor, highest close - 3 x ATR), never moving down. A close below the trail triggers the sale: limit at max(bid, floor), so it rests at the floor if price is below it.
@@ -76,6 +77,7 @@ The bot runs on a server; `main.py sync` copies the server's ledger to this mach
 All from backtests on real 4h candles (Revolut X history starts 2025-11-06; indicators need about 3 months, so usable data starts 2026-02-07). Numbers are for the last 6 months unless stated. Re-open a decision only with new evidence; the sample is small and mostly a falling market.
 
 - Adopted: breakout pause 32h (8 candles), up from 16h. 6 months: +16.2% against +11.1%; better in all three windows tried.
+- Adopted: price band 15% (2 open lots per pair within any 15% range), up from 10%. A wider band is stricter. BTC+ETH shared pot: +23.9% against +21.3% (all), +18.2% against +16.2% (6 months), +2.0% against +1.2% (90 days). 20% was worse (+18.7%, +11.8%). Small gain, one market; it would hurt SOL and XRP (about -5 points) if those pairs are ever added. See `research/2026-11-12-band-width.md`.
 - Rejected, fewer lots (4 total, 3 per pair, 1 per price range): smaller October loss but profit fell from +11.1% to +3.6..+7.8%.
 - Rejected, waiting for +10% before selling: +3.6% (fixed target) and +8.6% (10% floor then trail) against +14.0%; money tied up for months.
 - Rejected, faster exits (trail 2 or 1.5 x ATR, floor 1.5 or 2%, selling when the live price touches the trail): helped October a little, cut 6-month profit to +5..+14%.
