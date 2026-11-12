@@ -1,0 +1,16 @@
+# Secrets — never commit
+.env
+keys/
+*.pem
+
+# Data the bot generates
+*.db
+*.sqlite
+*.sqlite3
+logs/
+*.log
+
+# Python
+.venv/
+__pycache__/
+*.pyc
