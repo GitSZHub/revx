@@ -43,7 +43,7 @@ Live mode (the user runs this, never Claude): set `DRY_RUN = false`, then `main.
 Entry gates, in order (first failure is logged in `signals.reason`): breakout pause, signal, price still below the band, no working buy on the pair, lot caps, spacing, price band.
 
 - Signal: 4h close below the lower Bollinger band (20, 2) and realized-vol percentile (90 days) at or below 95.
-- Breakout pause: no new lot while any of the last 4 closed candles (16h, including the latest) moved at least 2 x ATR open-to-close, up or down. ATR is the value before that candle.
+- Breakout pause: no new lot while any of the last 8 closed candles (32h, including the latest) moved at least 2 x ATR open-to-close, up or down. ATR is the value before that candle.
 - Price band: at most 2 open lots per pair within any 10% price range (sliding window, not fixed buckets).
 - Spacing: at least 1.5 x ATR below the pair's most recent open lot.
 - Buys: post-only limit at the bid, cancelled after `unfilled_cancel_minutes` and re-evaluated.
