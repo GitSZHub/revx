@@ -31,8 +31,14 @@ bollinger_period = 20
 bollinger_stddev = 2
 atr_period = 14
 spacing_atr_mult = 1.5
+vol_window = 20                 # candles in each realized-vol reading
 vol_lookback_days = 90
 vol_max_percentile = 95
+signal = "bollinger_dip"        # entry signal; see revx/signals.py
+band_width_pct = 0.10           # at most band_max_lots open lots per pair within any price range this wide
+band_max_lots = 2
+breakout_atr_mult = 2           # a candle whose open-to-close move is at least this many ATRs is a breakout
+breakout_cooldown_candles = 4   # no new lot while any of the last N closed candles is a breakout (4 x 4h = 16h)
 
 [exit]
 min_profit = 0.03
@@ -41,6 +47,11 @@ partial_pct = 0
 
 [reconcile]
 tolerance_pct = 0.005
+abs_tolerance_eur = 0.02
+abs_tolerance_crypto = 0.000001
+
+[dry_run]
+starting_eur = 400              # simulated cash for dry-run and the backtester
 
 [report]
 target_multiple = 10

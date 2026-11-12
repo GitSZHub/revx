@@ -51,8 +51,18 @@ class StrategyConfig:
     bollinger_stddev: Decimal
     atr_period: int
     spacing_atr_mult: Decimal
+    vol_window: int
     vol_lookback_days: int
     vol_max_percentile: Decimal
+    signal: str
+    band_width_pct: Decimal
+    band_max_lots: int
+    breakout_atr_mult: Decimal
+    breakout_cooldown_candles: int
+
+    @property
+    def vol_lookback_candles(self) -> int:
+        return self.vol_lookback_days * 1440 // self.candle_interval_minutes
 
 
 @dataclass(frozen=True)
@@ -71,6 +81,9 @@ class Config:
     strategy: StrategyConfig
     exit: ExitConfig
     reconcile_tolerance_pct: Decimal
+    reconcile_abs_eur: Decimal
+    reconcile_abs_crypto: Decimal
+    dry_run_starting_eur: Decimal
     target_multiple: Decimal
 
 
@@ -126,8 +139,14 @@ def load_config(path: Path | None = None) -> Config:
                 bollinger_stddev=_dec(s["bollinger_stddev"], "strategy.bollinger_stddev"),
                 atr_period=_int(s["atr_period"], "strategy.atr_period"),
                 spacing_atr_mult=_dec(s["spacing_atr_mult"], "strategy.spacing_atr_mult"),
+                vol_window=_int(s["vol_window"], "strategy.vol_window"),
                 vol_lookback_days=_int(s["vol_lookback_days"], "strategy.vol_lookback_days"),
                 vol_max_percentile=_dec(s["vol_max_percentile"], "strategy.vol_max_percentile"),
+                signal=str(s["signal"]),
+                band_width_pct=_dec(s["band_width_pct"], "strategy.band_width_pct"),
+                band_max_lots=_int(s["band_max_lots"], "strategy.band_max_lots"),
+                breakout_atr_mult=_dec(s["breakout_atr_mult"], "strategy.breakout_atr_mult"),
+                breakout_cooldown_candles=_int(s["breakout_cooldown_candles"], "strategy.breakout_cooldown_candles"),
             ),
             exit=ExitConfig(
                 min_profit=_dec(e["min_profit"], "exit.min_profit"),
@@ -135,6 +154,9 @@ def load_config(path: Path | None = None) -> Config:
                 partial_pct=_dec(e["partial_pct"], "exit.partial_pct"),
             ),
             reconcile_tolerance_pct=_dec(raw["reconcile"]["tolerance_pct"], "reconcile.tolerance_pct"),
+            reconcile_abs_eur=_dec(raw["reconcile"]["abs_tolerance_eur"], "reconcile.abs_tolerance_eur"),
+            reconcile_abs_crypto=_dec(raw["reconcile"]["abs_tolerance_crypto"], "reconcile.abs_tolerance_crypto"),
+            dry_run_starting_eur=_dec(raw["dry_run"]["starting_eur"], "dry_run.starting_eur"),
             target_multiple=_dec(raw["report"]["target_multiple"], "report.target_multiple"),
         )
     except KeyError as exc:
@@ -160,6 +182,10 @@ def _validate(cfg: Config) -> None:
         raise ConfigError("exit.partial_pct must be in [0, 1)")
     if not (Decimal(0) < s.vol_max_percentile <= Decimal(100)):
         raise ConfigError("strategy.vol_max_percentile must be in (0, 100]")
+    if s.band_width_pct <= 0 or s.band_max_lots < 1:
+        raise ConfigError("band rule needs band_width_pct > 0 and band_max_lots >= 1")
+    if s.breakout_atr_mult <= 0 or s.breakout_cooldown_candles < 0:
+        raise ConfigError("breakout rule needs breakout_atr_mult > 0 and breakout_cooldown_candles >= 0")
 
 
 def resolve_dry_run(cfg: Config, live_flag: bool) -> tuple[bool, str]:

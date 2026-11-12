@@ -80,27 +80,59 @@ def percentile_rank(value: Decimal, history: Sequence[Decimal]) -> Decimal:
 
 @dataclass(frozen=True)
 class MarketState:
+    """Everything the strategy needs to know about one closed candle."""
     symbol: str
-    candle_start_ms: int      # the last closed candle
+    candle_start_ms: int
+    open: Decimal
+    high: Decimal
+    low: Decimal
     close: Decimal
     bands: Bollinger
     atr: Decimal
+    atr_prev: Decimal          # ATR as it stood before this candle
     realized_vol: Decimal
     vol_percentile: Decimal
+    is_breakout: bool          # |close - open| >= breakout_atr_mult x atr_prev
 
 
-def market_state(symbol: str, candles: Sequence[Candle], *, bollinger_period: int, bollinger_k: Decimal,
-                 atr_period: int, vol_window: int, vol_lookback_candles: int) -> MarketState:
-    """Compute everything the strategy needs from closed candles (oldest first)."""
+def compute_series(symbol: str, candles: Sequence[Candle], *, bollinger_period: int, bollinger_k: Decimal,
+                   atr_period: int, vol_window: int, vol_lookback: int,
+                   breakout_atr_mult: Decimal) -> list[MarketState | None]:
+    """One MarketState per closed candle (oldest first), in a single pass.
+
+    Entries are None until there is enough history for every indicator. The live loop
+    reads the tail; the backtester walks the whole list. Both use this function.
+    """
+    n = len(candles)
     closes = [c.close for c in candles]
-    vols = realized_vol_series(closes, vol_window)
-    history = vols[-vol_lookback_candles:]
-    return MarketState(
-        symbol=symbol,
-        candle_start_ms=candles[-1].start_ms,
-        close=closes[-1],
-        bands=bollinger(closes, bollinger_period, bollinger_k),
-        atr=atr(candles, atr_period),
-        realized_vol=vols[-1],
-        vol_percentile=percentile_rank(vols[-1], history),
-    )
+    trs: list[Decimal | None] = [None] + true_ranges(candles)
+    rets: list[Decimal | None] = [None] + log_returns(closes)
+    atrs: list[Decimal | None] = [None] * n
+    vols: list[Decimal | None] = [None] * n
+    out: list[MarketState | None] = [None] * n
+    first = max(vol_window + vol_lookback - 1, bollinger_period - 1, atr_period + 1)
+
+    for i in range(n):
+        if i == atr_period:
+            atrs[i] = sma(trs[1:atr_period + 1])
+        elif i > atr_period:
+            atrs[i] = (atrs[i - 1] * (atr_period - 1) + trs[i]) / atr_period
+        if i >= vol_window:
+            vols[i] = stddev(rets[i - vol_window + 1:i + 1])
+        if i < first:
+            continue
+        c = candles[i]
+        out[i] = MarketState(
+            symbol=symbol, candle_start_ms=c.start_ms, open=c.open, high=c.high, low=c.low, close=c.close,
+            bands=bollinger(closes[i - bollinger_period + 1:i + 1], bollinger_period, bollinger_k),
+            atr=atrs[i], atr_prev=atrs[i - 1],
+            realized_vol=vols[i],
+            vol_percentile=percentile_rank(vols[i], vols[i - vol_lookback + 1:i + 1]),
+            is_breakout=abs(c.close - c.open) >= breakout_atr_mult * atrs[i - 1],
+        )
+    return out
+
+
+def candles_needed(vol_window: int, vol_lookback: int) -> int:
+    """How many closed candles compute_series needs before its last entry is not None."""
+    return vol_window + vol_lookback + 5
