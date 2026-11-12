@@ -42,6 +42,7 @@ MIGRATIONS: list[str] = [
         trail_armed INTEGER NOT NULL DEFAULT 0,
         trail_stop TEXT,
         last_candle_ms INTEGER,            -- last closed candle applied to the trail
+        exit_triggered INTEGER NOT NULL DEFAULT 0,  -- a close fell below the trail; sell at >= floor
         exit_price TEXT,                   -- quantity-weighted average over disposals
         realized_pnl_eur TEXT,
         opened_at INTEGER NOT NULL,
@@ -247,3 +248,111 @@ def backup(conn: sqlite3.Connection, backups_dir: Path, *, keep: int = 30,
     for old in sorted(backups_dir.glob("ledger-*.db"))[:-keep]:
         old.unlink()
     return target
+
+
+# ---- lots ---------------------------------------------------------------------
+
+def lot_from_row(r: sqlite3.Row):
+    from revx.models import Lot
+
+    return Lot(
+        id=r["id"], symbol=r["symbol"], status=r["status"],
+        entry_price=dec(r["entry_price"]), qty_initial=dec(r["qty_initial"]), qty_open=dec(r["qty_open"]),
+        cost_basis_eur=dec(r["cost_basis_eur"]), floor=dec(r["floor"]),
+        trail_armed=bool(r["trail_armed"]), high_water_mark=dec(r["high_water_mark"]),
+        trail_stop=dec(r["trail_stop"]), last_candle_ms=r["last_candle_ms"],
+        exit_triggered=bool(r["exit_triggered"]), opened_at=r["opened_at"], dry_run=bool(r["dry_run"]),
+    )
+
+
+def get_lot(conn: sqlite3.Connection, lot_id: int):
+    row = conn.execute("SELECT * FROM lots WHERE id = ?", (lot_id,)).fetchone()
+    return lot_from_row(row) if row else None
+
+
+def open_lots(conn: sqlite3.Connection, dry_run: bool, symbol: str | None = None) -> list:
+    """Open lots for one mode, oldest first."""
+    sql = "SELECT * FROM lots WHERE status = 'open' AND dry_run = ?"
+    args: list[Any] = [int(dry_run)]
+    if symbol:
+        sql += " AND symbol = ?"
+        args.append(symbol)
+    return [lot_from_row(r) for r in conn.execute(sql + " ORDER BY opened_at, id", args)]
+
+
+def update_lot_trail(conn: sqlite3.Connection, lot_id: int, trail, last_candle_ms: int | None,
+                     exit_triggered: bool) -> None:
+    with conn:
+        conn.execute(
+            "UPDATE lots SET trail_armed = ?, high_water_mark = ?, trail_stop = ?, last_candle_ms = ?, "
+            "exit_triggered = ? WHERE id = ?",
+            (int(trail.armed), txt(trail.high_water_mark), txt(trail.trail_stop), last_candle_ms,
+             int(exit_triggered), lot_id),
+        )
+
+
+# ---- orders -------------------------------------------------------------------
+
+ACTIVE_ORDER_STATES = ("open", "partially_filled")
+
+
+def active_orders(conn: sqlite3.Connection, dry_run: bool, *, side: str | None = None,
+                  symbol: str | None = None, lot_id: int | None = None) -> list[sqlite3.Row]:
+    """Orders working on the exchange (or in the simulator), plus any not yet confirmed sent."""
+    sql = ("SELECT * FROM orders WHERE dry_run = ? "
+           "AND state IN ('pending_send', 'open', 'partially_filled')")
+    args: list[Any] = [int(dry_run)]
+    for column, value in (("side", side), ("symbol", symbol), ("lot_id", lot_id)):
+        if value is not None:
+            sql += f" AND {column} = ?"
+            args.append(value)
+    return list(conn.execute(sql + " ORDER BY id", args))
+
+
+# ---- signals, holdings, equity ------------------------------------------------
+
+def add_signal(conn: sqlite3.Connection, *, symbol: str, action: str, reason: str, dry_run: bool,
+               state=None, price: Decimal | None = None, regime: str | None = None,
+               lot_id: int | None = None, ts: int | None = None) -> None:
+    with conn:
+        conn.execute(
+            "INSERT INTO signals (ts, symbol, candle_start_ms, price, atr, realized_vol, vol_percentile, "
+            "regime, action, reason, lot_id, dry_run) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (ts or now_ms(), symbol,
+             state.candle_start_ms if state else None,
+             txt(price if price is not None else (state.close if state else None)),
+             txt(state.atr) if state else None,
+             txt(state.realized_vol) if state else None,
+             txt(state.vol_percentile) if state else None,
+             regime, action, reason, lot_id, int(dry_run)),
+        )
+
+
+def holdings(conn: sqlite3.Connection, dry_run: bool) -> dict[str, Decimal]:
+    """What the ledger says the account holds, per asset: cash flows plus fills minus fees."""
+    from revx.models import split_symbol
+
+    out: dict[str, Decimal] = {}
+
+    def add(asset: str, amount: Decimal) -> None:
+        out[asset] = out.get(asset, Decimal(0)) + amount
+
+    for r in conn.execute("SELECT asset, amount FROM cash_flows WHERE dry_run = ?", (int(dry_run),)):
+        add(r["asset"], dec(r["amount"]))
+    for r in conn.execute("SELECT * FROM fills WHERE dry_run = ?", (int(dry_run),)):
+        base, quote = split_symbol(r["symbol"])
+        sign = 1 if r["side"] == "buy" else -1
+        add(base, sign * dec(r["qty"]))
+        add(quote, -sign * dec(r["quote_amount"]))
+        add(r["fee_currency"], -dec(r["fee"]))
+    return out
+
+
+def add_equity_snapshot(conn: sqlite3.Connection, eur_cash: Decimal, positions_eur: Decimal,
+                        dry_run: bool, ts: int | None = None) -> None:
+    with conn:
+        conn.execute(
+            "INSERT INTO equity_snapshots (ts, eur_cash, positions_eur, equity_eur, dry_run) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (ts or now_ms(), txt(eur_cash), txt(positions_eur), txt(eur_cash + positions_eur), int(dry_run)),
+        )
