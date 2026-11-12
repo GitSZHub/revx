@@ -31,6 +31,14 @@ Lot-based dip-buying bot for BTC-EUR and ETH-EUR on Revolut X, in Python 3.12.
 - Fills carry no fee field; fees come from order details (`total_fee`, `fee_currency`).
 - Order placement: 10/s, 1000/day. No sandbox exists.
 
+## Design decisions
+
+- The high-water mark and exits use 4h candle closes, not intrabar highs or lows (`revx/risk.py`).
+- The trail stop never moves down, and the floor is rounded up to the price step.
+- `disposals` table (one row per sale of part of a lot) is the tax record: EUR proceeds, fee, cost basis, realized P&L.
+- Ledger: decimals as TEXT, timestamps as integer ms UTC, schema version in `PRAGMA user_version`.
+- Order writes on the client are `_post_order` / `_cancel_order`; only `revx/engine.py` may call them.
+
 ## Build phases
 
 0 scaffold, 1 client, 2 ledger, 3 market and risk, 4 strategy, 5 engine, 6 reconcile / kill switches / ETH import, 7 loop and report, 8 backtester, 9 live readiness.
