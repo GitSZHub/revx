@@ -1,0 +1,21 @@
+# systemd unit template. Adjust User and the paths, then:
+#   sudo cp deploy/revx-bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now revx-bot
+# This runs dry-run. For live trading set DRY_RUN = false in config.toml AND add --live below.
+[Unit]
+Description=Revolut X dip-buying bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=revx
+WorkingDirectory=/opt/revx
+ExecStart=/opt/revx/.venv/bin/python main.py run
+Restart=on-failure
+RestartSec=30
+KillSignal=SIGTERM
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
