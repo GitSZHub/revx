@@ -124,8 +124,13 @@ class RevxClient:
         from dotenv import load_dotenv
 
         load_dotenv()
+        api_key = os.environ.get("REVX_API_KEY")
+        if not api_key:
+            raise RevxError("REVX_API_KEY is not set (expected in the environment or in .env)")
+        if not Path(private_key_path).is_file():
+            raise RevxError(f"private key file not found: {private_key_path}")
         return cls(
-            api_key=os.environ["REVX_API_KEY"],
+            api_key=api_key,
             signer=Signer.from_pem_file(private_key_path),
             base_url=base_url,
             timeout=timeout,
