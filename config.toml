@@ -1,0 +1,46 @@
+# Non-secret settings. Secrets (REVX_API_KEY) come from .env at runtime.
+# All numbers are parsed as Decimal or int.
+
+[mode]
+# Live orders need DRY_RUN = false here AND the --live CLI flag.
+DRY_RUN = true
+
+[api]
+base_url = "https://revx.revolut.com"
+private_key_path = "keys/private.pem"
+timeout_seconds = 10
+max_consecutive_errors = 5      # kill switch: halt after this many API errors in a row
+daily_order_budget = 200        # the exchange limit is 1000 per day
+
+[paths]
+ledger = "ledger.db"
+backups = "backups"
+halt_file = "HALT"
+
+[loop]
+interval_seconds = 300
+unfilled_cancel_minutes = 30
+
+[strategy]
+pairs = ["BTC-EUR", "ETH-EUR"]
+candle_interval_minutes = 240
+tranche_eur = 50
+max_open_lots = 8
+max_open_lots_per_pair = 5
+bollinger_period = 20
+bollinger_stddev = 2
+atr_period = 14
+spacing_atr_mult = 1.5
+vol_lookback_days = 90
+vol_max_percentile = 95
+
+[exit]
+min_profit = 0.03
+trail_atr_mult = 3
+partial_pct = 0
+
+[reconcile]
+tolerance_pct = 0.005
+
+[report]
+target_multiple = 10

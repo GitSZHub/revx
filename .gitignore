@@ -14,3 +14,8 @@ logs/
 .venv/
 __pycache__/
 *.pyc
+
+# Bot runtime
+backups/
+HALT
+.pytest_cache/
