@@ -20,6 +20,13 @@ SPEC = {
 FEES = Fees(D(0), D("0.0009"))
 
 
+@pytest.fixture(autouse=True)
+def no_telegram(monkeypatch):
+    """Tests must never send a real alert, whatever .env holds."""
+    monkeypatch.setattr("revx.notify.send", lambda text: False)
+    monkeypatch.setattr("revx.notify.public_ip", lambda: None)
+
+
 class Clock:
     def __init__(self, now):
         self.now = now

@@ -8,7 +8,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from revx import ledger
+from revx import ledger, notify
 
 
 def halt_reason(conn: sqlite3.Connection, halt_file: Path) -> str | None:
@@ -23,6 +23,7 @@ def halt(conn: sqlite3.Connection, reason: str) -> None:
     ledger.set_value(conn, "halted", "1")
     ledger.set_value(conn, "halt_reason", reason)
     ledger.add_event(conn, "error", "halt", reason)
+    notify.halt_alert(reason)
 
 
 def resume(conn: sqlite3.Connection) -> None:

@@ -38,6 +38,7 @@ Live mode (the user runs this, never Claude): set `DRY_RUN = false`, then `main.
 - `revx/ledger.py`: schema, migrations, queries, backup. `revx/report.py`, `revx/backtest.py`, `main.py` (CLI).
 - `research/`: write-ups and scripts for studies (index in `research/README.md`). New findings go there first.
 - `revx/sync.py`: pulls the server's ledger to this machine (`main.py sync`).
+- `revx/notify.py`: Telegram alert on every halt (`killswitch.halt`); a 401 whitelist halt includes the server's current public IP. Needs `REVX_TELEGRAM_TOKEN` and `REVX_TELEGRAM_CHAT_ID` in the server's `.env`; no-op without them.
 - `deploy/revx-bot.service`: systemd unit template.
 - Gitignored runtime files: `ledger.db`, `backups/`, `data/` (candle cache), `HALT`.
 
