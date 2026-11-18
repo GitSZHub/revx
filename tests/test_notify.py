@@ -8,6 +8,7 @@ def test_whitelist_halt_alert_names_the_ip(monkeypatch):
     notify.halt_alert("5 consecutive errors, last: HTTP 401: API key can only be used "
                       "for authentication from whitelisted IP")
     assert "203.0.113.7" in sent[0] and "whitelist" in sent[0]
+    assert "/ip" in sent[0]   # re-fetch command, answered by OrangePolyBot
 
 
 def test_other_halt_alert_carries_the_reason(monkeypatch):

@@ -53,7 +53,9 @@ def halt_alert(reason: str) -> bool:
         text = ("revx bot HALTED: the exchange rejected this server's IP address.\n"
                 f"Current public IP: {ip or 'lookup failed, run `curl -4 ifconfig.me` on the server'}\n"
                 "Fix: add that IP to the API key's whitelist in Revolut X, then run "
-                "`main.py resume` and restart the service.")
+                "`main.py resume` and restart the service.\n"
+                "Late? The IP may have changed again. Tap /ip for the address right now "
+                "(answered by OrangePolyBot on the same Pi).")
     else:
         text = f"revx bot HALTED: {reason}\nFix the cause, then run `main.py resume`."
     return send(text)
