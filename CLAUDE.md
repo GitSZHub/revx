@@ -40,7 +40,8 @@ Live mode (the user runs this, never Claude): set `DRY_RUN = false`, then `main.
 - `revx/sync.py`: pulls the server's ledger to this machine (`main.py sync`).
 - `revx/notify.py`: Telegram alert on every halt (`killswitch.halt`); a 401 whitelist halt includes the server's current public IP. Needs `REVX_TELEGRAM_TOKEN` and `REVX_TELEGRAM_CHAT_ID` in the server's `.env`; no-op without them.
 - `deploy/revx-bot.service`: systemd unit template.
-- Gitignored runtime files: `ledger.db`, `backups/`, `data/` (candle cache), `HALT`.
+- Logs: `run`/`cycle` write `logs/revx.log` as well as stderr (the systemd journal). The file rotates every hour (UTC) and 24 hourly files are kept (`revx.log.YYYY-MM-DD_HH`), so the folder holds the last 24 hours. On the server: `tail -f logs/revx.log`.
+- Gitignored runtime files: `ledger.db`, `backups/`, `data/` (candle cache), `logs/`, `HALT`.
 
 ## Strategy as built
 

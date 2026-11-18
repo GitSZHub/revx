@@ -32,6 +32,7 @@ class PathsConfig:
     ledger: Path
     backups: Path
     halt_file: Path
+    logs: Path                  # rolling log files of `run` / `cycle`, last 24 hours
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,7 @@ def load_config(path: Path | None = None) -> Config:
                 ledger=base / p["ledger"],
                 backups=base / p["backups"],
                 halt_file=base / p["halt_file"],
+                logs=base / p.get("logs", "logs"),
             ),
             loop=LoopConfig(
                 interval_seconds=_int(lo["interval_seconds"], "loop.interval_seconds"),

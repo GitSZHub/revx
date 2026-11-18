@@ -16,6 +16,7 @@ daily_order_budget = 200        # the exchange limit is 1000 per day
 ledger = "ledger.db"
 backups = "backups"
 halt_file = "HALT"
+logs = "logs"                   # logs/revx.log, one file per hour, last 24 hours kept
 
 [loop]
 interval_seconds = 300

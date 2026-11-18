@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import signal
 import sys
 import time
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 from revx import backtest, killswitch, ledger
 from revx.client import RevxClient, RevxError
@@ -52,7 +54,24 @@ def make_bot(cfg: Config, live_flag: bool, allow_synced_copy: bool = False) -> B
                dry_run=dry_run)
 
 
+LOG_FILE = "revx.log"
+LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
+LOG_HOURS_KEPT = 24
+
+
+def setup_file_log(log_dir: Path) -> logging.Handler:
+    """Also write the log to <log_dir>/revx.log, rotated every hour (UTC) with the last
+    LOG_HOURS_KEPT hours kept as revx.log.YYYY-MM-DD_HH. Older files are deleted."""
+    log_dir.mkdir(parents=True, exist_ok=True)
+    handler = TimedRotatingFileHandler(log_dir / LOG_FILE, when="h", interval=1,
+                                       backupCount=LOG_HOURS_KEPT, utc=True, encoding="utf-8")
+    handler.setFormatter(logging.Formatter(LOG_FORMAT))
+    logging.getLogger().addHandler(handler)
+    return handler
+
+
 def cmd_run(args, cfg: Config) -> int:
+    setup_file_log(cfg.paths.logs)
     bot = make_bot(cfg, args.live, args.allow_synced_copy)
     interval = args.interval or cfg.loop.interval_seconds
     stop = {"now": False}
@@ -201,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     sync.set_defaults(func=cmd_sync)
 
     args = parser.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stderr)
+    logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, stream=sys.stderr)
     cfg = load_config()
     try:
         return args.func(args, cfg)
